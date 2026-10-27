@@ -111,6 +111,7 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
             BASE BRANCH: ${{ github.event.pull_request.base.ref }}
+            DEFAULT BRANCH: ${{ github.event.repository.default_branch }}
             REQUESTED BY: ${{ github.event.sender.login }}
 
             You are ${{ inputs.bot_user }}, a reviewer on this team. Someone asked you to
