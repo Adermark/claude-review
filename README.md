@@ -117,6 +117,7 @@ Inputs the caller passes under `with:`:
 | `bot_user` | yes | The bot account's GitHub username. |
 | `model` | no | The Claude model to use. Defaults to the Claude Code default. |
 | `extra_instructions` | no | Repo-specific review guidance, added to the end of the prompt. |
+| `persona` | no | The voice the bot writes in. Defaults to Al Swearengen from HBO's *Deadwood*. Pass `persona: ""` for a plain voice, or your own description. |
 
 To change how the bot reviews in every repo, edit
 [`.github/workflows/claude-review.yml`](.github/workflows/claude-review.yml).
