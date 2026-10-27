@@ -1,0 +1,99 @@
+# Reusable Claude Code reviewer. Other repos call this with a small caller
+# workflow (see templates/claude.yml); it runs in the calling repo's context.
+name: Claude review (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      model:
+        description: "Claude model to use (empty = Claude Code default)"
+        type: string
+        default: ""
+      extra_instructions:
+        description: "Repo-specific review instructions appended to the prompt"
+        type: string
+        default: ""
+      trigger_phrase:
+        description: "Phrase that summons Claude in comments"
+        type: string
+        default: "@claude"
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: true
+
+jobs:
+  # Automatic review when a PR is opened or updated.
+  review:
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: claude-review-${{ github.repository }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            BASE BRANCH: ${{ github.event.pull_request.base.ref }}
+
+            You are reviewing this pull request as a careful senior engineer.
+
+            1. Read the repo's CLAUDE.md / AGENTS.md (if present) and follow its conventions.
+            2. Get the change with `gh pr view` and `gh pr diff`. Read surrounding code
+               in the checkout when you need context.
+            3. Look for, in this order: correctness bugs, security problems, data loss,
+               broken error handling, race conditions, and violations of the repo's own
+               conventions. Mention performance only when it clearly matters.
+            4. Do NOT comment on formatting, naming taste or anything a linter would catch.
+               Do not invent problems: only report things you are confident about.
+            5. For each concrete issue, post an inline comment on the exact line with
+               mcp__github_inline_comment__create_inline_comment (confirmed: true).
+               Say what is wrong, a concrete scenario where it breaks, and a suggested fix.
+            6. Finish with ONE short top-level comment via `gh pr comment`: a 1–2 sentence
+               summary of the PR, then the number of issues by severity. If you found
+               nothing worth flagging, say so in one line.
+
+            ${{ inputs.extra_instructions }}
+          claude_args: >-
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
+            ${{ inputs.model != '' && format('--model {0}', inputs.model) || '' }}
+
+  # Interactive: answers when someone writes @claude in a PR/issue comment or review.
+  respond:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, inputs.trigger_phrase)) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, inputs.trigger_phrase)) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, inputs.trigger_phrase))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          trigger_phrase: ${{ inputs.trigger_phrase }}
+          claude_args: >-
+            ${{ inputs.model != '' && format('--model {0}', inputs.model) || '' }}
