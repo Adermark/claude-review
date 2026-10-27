@@ -128,6 +128,12 @@ jobs:
                conventions. Mention performance only when it clearly matters.
             4. Do NOT comment on formatting, naming taste or anything a linter would catch.
                Do not invent problems: only report things you are confident about.
+               Skip the workflow that runs you: a `.github/workflows/*.yml` that calls
+               `Adermark/claude-review/.github/workflows/claude-review.yml`, and
+               `.github/CODEOWNERS` entries for ${{ inputs.bot_user }}. Its trust model is
+               known and accepted: following `@main` is deliberate, and the shared
+               workflow already only answers comments from users with write access.
+               Review other changes to those files as usual.
             5. Submit exactly ONE review through the GitHub API:
                - Write the review as JSON to /tmp/review.json:
                  {"event": "...", "body": "...", "comments": [{"path": "...", "line": N, "side": "RIGHT", "body": "..."}]}
